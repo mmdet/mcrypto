@@ -14,7 +14,6 @@ func TestSm3ByBytes(t *testing.T) {
 }
 
 func TestSm3ByFile(t *testing.T) {
-
 	f, _ := os.Open("/Users/kisscat/Downloads/tkks_exam_client_setup_220816.exe")
 
 	defer f.Close()
