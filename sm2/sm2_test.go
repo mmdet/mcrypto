@@ -31,7 +31,6 @@ func TestSignVerify(t *testing.T) {
 		t.Error(err.Error())
 		return
 	}
-
 	inBytes := []byte("123")
 
 	sign, err := Sign(rand.Reader, priv, inBytes, nil)
@@ -40,7 +39,7 @@ func TestSignVerify(t *testing.T) {
 		return
 	}
 
-	fmt.Println(base64.RawStdEncoding.EncodeToString(sign))
+	fmt.Println("raw sign:", base64.RawStdEncoding.EncodeToString(sign))
 
 	result := Verify(&priv.PublicKey, inBytes, nil, sign)
 	if !result {
@@ -48,5 +47,31 @@ func TestSignVerify(t *testing.T) {
 		return
 	}
 
-	fmt.Printf("result: %v \n", result)
+	fmt.Printf("raw sign verify result: %v \n", result)
+
+	digest, _ := priv.PublicKey.SM3Digest(inBytes, nil)
+
+	sign, err = SignDigest(rand.Reader, priv, digest)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	fmt.Println("digest sign:", base64.RawStdEncoding.EncodeToString(sign))
+
+	result = Verify(&priv.PublicKey, inBytes, nil, sign)
+	if !result {
+		t.Error("digest sign verify failed")
+		return
+	}
+
+	fmt.Printf("digest sign verify use plain result: %v \n", result)
+
+	result = VerifyDigest(&priv.PublicKey, digest, sign)
+	if !result {
+		t.Error("digest sign verify failed")
+		return
+	}
+
+	fmt.Printf("digest sign verify use digest result: %v \n", result)
+
 }
