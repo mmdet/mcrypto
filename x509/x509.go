@@ -492,6 +492,7 @@ var (
 	oidSignatureECDSAWithSHA512 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
 	oidSignatureEd25519         = asn1.ObjectIdentifier{1, 3, 101, 112}
 	oidSignatureSM2WithSM3      = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 501}
+	oidSignatureECDSASM2        = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 301, 1}
 
 	oidSHA256  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
 	oidSHA384  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 2}
@@ -529,7 +530,7 @@ var signatureAlgorithmDetails = []struct {
 	{ECDSAWithSHA384, "ECDSA-SHA384", oidSignatureECDSAWithSHA384, ECDSA, SHA384},
 	{ECDSAWithSHA512, "ECDSA-SHA512", oidSignatureECDSAWithSHA512, ECDSA, SHA512},
 	{PureEd25519, "Ed25519", oidSignatureEd25519, Ed25519, Hash(0) /* no pre-hashing */},
-	{SM2WithSM3, "SM2WithSM3", oidSignatureSM2WithSM3, SM2, SM3},
+	{SM2WithSM3, "SM2WithSM3", oidSignatureSM2WithSM3, ECDSA, SM3},
 }
 
 // hashToPSSParameters contains the DER encoded RSA PSS parameters for the
@@ -1003,7 +1004,7 @@ func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo PublicKeyAlgorithm, 
 
 // CheckSignature verifies that signature is a valid signature over signed from
 // a crypto.PublicKey.
-func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey) (err error) {
+func checkSignature(algo SignatureAlgorithm, plain, signature []byte, publicKey crypto.PublicKey) (err error) {
 	var hashType Hash
 	var pubKeyAlgo PublicKeyAlgorithm
 
@@ -1023,8 +1024,8 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 	}
 
 	h := hashType.New()
-	h.Write(signed)
-	signed = h.Sum(nil)
+	h.Write(plain)
+	signed := h.Sum(nil)
 
 	switch pub := publicKey.(type) {
 	case *rsa.PublicKey:
@@ -1051,8 +1052,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 		if pub.Curve != sm2.GetSm2P256V1() {
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
 		}
-		//todo sm2 verify
-		if !sm2.Verify(pub, signed, nil, signature) {
+		if !sm2.Verify(pub, plain, nil, signature) {
 			return errors.New("x509: SM2 verification failure")
 		}
 		return
