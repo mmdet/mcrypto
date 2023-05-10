@@ -1,5 +1,5 @@
 <p align="center">
-	<a href=""><img src="logo.png" width="45%"></a>
+	<a href=""><img src="logo.png" width="200px"></a>
 </p>
 <p align="center">
 	<strong>对GO语言标准库crypto的扩展,支持国产SM系列算法</strong>
