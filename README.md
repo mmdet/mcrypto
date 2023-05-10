@@ -2,7 +2,7 @@
 	<a href=""><img src="logo.png" width="45%"></a>
 </p>
 <p align="center">
-	<strong>对GO标准库crypto的扩展,支持国产SM系列算法</strong>
+	<strong>对GO语言标准库crypto的扩展,支持国产SM系列算法</strong>
 </p>
 
 <p align="center">
