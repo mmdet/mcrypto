@@ -75,7 +75,7 @@ if !result {
 #### 3.2对摘要签名
 这种签名方式，需要调用者事先自己计算原文的摘要。
 
-由于SM2签名时SM2公钥需要参与计算，sm2.PublicKey提供了该函数。
+由于SM2签名时的摘要计算需要公钥参与，sm2.PublicKey提供了该函数，调用方式如下：
 ```go
 pub:=sm2.PublicKey
 digest, _ := pub.SM3Digest(inBytes, useIdBytes)
