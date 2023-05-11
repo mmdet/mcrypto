@@ -35,7 +35,7 @@ h := sm3.New()
 h.Write([]byte("123"))
 fmt.Printf("%x \n", h.Sum(nil))
 ```
-## SM2非对称算法
+## SM2非对称加密算法
 ### 1.密钥对生成
 `sm2.PublicKey`和`sm2.PrivateKey`表示SM2算法的公私钥对，并实现了标准库的`crypto.PublicKey`和`crypto.PrivateKey`，使用上与RSA、ECDSA等其他算法的密钥对使用方式一致。
 ```go
@@ -52,55 +52,57 @@ fmt.Printf("y:%s\n", priv.PublicKey.Y.Text(16))
 
 ### 3.数字签名
 mcrypto提供了对原文签名和对摘要签名这两种待签名数据输入形式的签名。
-#### 3.1对原文签名与验证
-签名：
+#### 3.1 原文签名
+私钥签名：
 ```go
-inBytes := []byte("123")
-useIdBytes := []byte("1234567812345678")
-
-sign, err := sm2.Sign(rand.Reader, sm2.PrivateKey, inBytes, useIdBytes)
+priv, err := GenerateKey(rand.Reader)
 if err != nil {
-	t.Error(err.Error())
-	return
+    t.Error(err.Error())
+    return
+}
+inBytes := []byte("123")
+
+sign, err := priv.Sign(rand.Reader, inBytes, nil)
+if err != nil {
+    t.Error(err.Error())
+    return
 }
 ```
-验证：
+公钥验证：
 ```go
-result := sm2.Verify(&sm2.PublicKey, inBytes, useIdBytes, sign)
+result :=priv.PublicKey.Verify(inBytes,nil,sign)
 if !result {
-	t.Error("verify failed")
-	return
+    t.Error("verify failed")
+    return
 }
 ```
-#### 3.2对摘要签名
+#### 3.2 摘要签名
 这种签名方式，需要调用者事先自己计算原文的摘要。
 
 由于SM2签名时的摘要计算需要公钥参与，sm2.PublicKey提供了该函数，调用方式如下：
 ```go
-pub:=sm2.PublicKey
-digest, _ := pub.SM3Digest(inBytes, useIdBytes)
-```
-将上面计算的`digest`签名：
-```go
-sign, err = sm2.SignDigest(rand.Reader, sm2.PrivateKey, digest)
+priv, err := GenerateKey(rand.Reader)
 if err != nil {
-	t.Error(err.Error())
-	return
+    t.Error(err.Error())
+    return
+}
+digest, _ := priv.PublicKey.SM3Digest(inBytes, useIdBytes)
+```
+私钥签名:将上面计算的`digest`签名：
+```go
+inBytes := []byte("123")
+
+sign, err := priv.SignDigest(rand.Reader, inBytes, nil)
+if err != nil {
+    t.Error(err.Error())
+    return
 }
 ```
-摘要签名验证：
+公钥验证：
 ```go
-result = sm2.VerifyDigest(sm2.PublicKey, digest, sign)
+result :=priv.PublicKey.VerifyDigest(inBytes,nil,sign)
 if !result {
-	t.Error("digest sign verify failed")
-	return
-}
-```
-或者，使用原文验证：
-```go
-result = Verify(sm2.PublicKey, inBytes, useIdBytes, sign)
-if !result {
-	t.Error("digest sign verify failed")
-	return
+    t.Error("verify failed")
+    return
 }
 ```

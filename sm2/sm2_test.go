@@ -33,15 +33,19 @@ func TestSignVerify(t *testing.T) {
 	}
 	inBytes := []byte("123")
 
-	sign, err := Sign(rand.Reader, priv, inBytes, nil)
+	sign, err := priv.SignDigest(rand.Reader, inBytes, nil)
 	if err != nil {
 		t.Error(err.Error())
 		return
 	}
 
+	sign, err := Sign(rand.Reader, priv, inBytes, nil)
+
 	fmt.Println("raw sign:", base64.RawStdEncoding.EncodeToString(sign))
 
 	result := Verify(&priv.PublicKey, inBytes, nil, sign)
+
+	result := priv.PublicKey.VerifyDigest(inBytes, nil, sign)
 	if !result {
 		t.Error("verify failed")
 		return
