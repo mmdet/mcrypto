@@ -119,7 +119,7 @@ func parseECPrivateKey(namedCurveOID *asn1.ObjectIdentifier, der []byte) (key an
 
 	copy(privateKey[len(privateKey)-len(privKey.PrivateKey):], privKey.PrivateKey)
 	x, y := curve.ScalarBaseMult(privateKey)
-	if curve == sm2.GetSm2P256V1() {
+	if curve == sm2.SM2P256V1() {
 		priv := new(sm2.PrivateKey)
 		priv.Curve = curve
 		priv.D = k

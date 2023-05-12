@@ -3,7 +3,9 @@ package sm2
 import (
 	"crypto"
 	"crypto/elliptic"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/mmdet/mcrypto/sm3"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
@@ -32,7 +34,7 @@ func init() {
 	initSm2P256V1()
 }
 
-func GetSm2P256V1() P256V1Curve {
+func SM2P256V1() P256V1Curve {
 	return sm2P256V1
 }
 
@@ -53,20 +55,18 @@ func initSm2P256V1() {
 	sm2P256V1.A = sm2A
 }
 
-// PublicKey represents an SM2 public key.
+//SM2 public key
 type PublicKey struct {
-	elliptic.Curve
-	X, Y *big.Int
+	Curve P256V1Curve
+	X, Y  *big.Int
 }
 
-// PrivateKey represents an SM2 private key.
+//SM2 private key
 type PrivateKey struct {
 	PublicKey
 	D *big.Int
 }
 
-//implement crypto.PrivateKey
-// Public returns the public key corresponding to priv.
 func (priv *PrivateKey) Public() crypto.PublicKey {
 	return &priv.PublicKey
 }
@@ -92,22 +92,28 @@ func (pub *PublicKey) Equal(x crypto.PublicKey) bool {
 
 //生成SM2密钥对
 func GenerateKey(random io.Reader) (*PrivateKey, error) {
-	priv, x, y, err := elliptic.GenerateKey(sm2P256V1, random)
+	d, x, y, err := elliptic.GenerateKey(SM2P256V1(), random)
 	if err != nil {
 		return nil, err
 	}
-	return &PrivateKey{
-		PublicKey: PublicKey{
-			Curve: sm2P256V1,
-			X:     x,
-			Y:     y,
-		},
-		D: new(big.Int).SetBytes(priv),
-	}, err
+	priv := new(PrivateKey)
+	priv.PublicKey.Curve = SM2P256V1()
+	priv.D = new(big.Int).SetBytes(d)
+	priv.PublicKey.X, priv.PublicKey.Y = x, y
+
+	return priv, err
+	//return &PrivateKey{
+	//	PublicKey: PublicKey{
+	//		Curve: SM2P256V1(),
+	//		X:     x,
+	//		Y:     y,
+	//	},
+	//	D: new(big.Int).SetBytes(priv),
+	//}, err
 }
 
 //原文裸签，返回R||S
-func (priv *PrivateKey) SignRS(rand io.Reader, in, uid []byte) (r, s *big.Int, err error) {
+func (priv *PrivateKey) SignRS(rand io.Reader, in []byte, uid []byte) (r, s *big.Int, err error) {
 	return SignRS(rand, priv, in, uid)
 }
 
@@ -127,12 +133,12 @@ func (priv *PrivateKey) SignDigest(rand io.Reader, digest []byte) ([]byte, error
 }
 
 //SM2签名摘要算法实现，需要公钥与userid参与计算
-func (pub *PublicKey) SM3Digest(msg, uid []byte) ([]byte, error) {
-	if uid == nil {
+func (pub *PublicKey) SM3Digest(msg []byte, uid []byte) ([]byte, error) {
+	if len(uid) == 0 {
 		uid = sm2SignDefaultUserId
 	}
 	digest := sm3.New()
-	z := z(digest, pub, uid)
+	z := z(digest, pub.X, pub.Y, uid)
 	digest.Reset()
 	digest.Write(z)
 	digest.Write(msg)
@@ -144,7 +150,7 @@ func (pub *PublicKey) Verify(in, uid, signature []byte) bool {
 	if err != nil {
 		return false
 	}
-	return VerifyRS(pub, uid, in, r, s)
+	return VerifyRS(pub, in, uid, r, s)
 }
 
 func (pub *PublicKey) VerifyRS(in, uid []byte, r, s *big.Int) bool {
@@ -164,29 +170,39 @@ func (pub *PublicKey) VerifyDigestRS(in []byte, r, s *big.Int) bool {
 }
 
 //Z = H256(ENTLA || IDA || a || b || xG || yG || xA || yA)
-func z(digest hash.Hash, pub *PublicKey, uid []byte) []byte {
+func z(digest hash.Hash, x, y *big.Int, uid []byte) []byte {
 	digest.Reset()
 	userIdLen := uint16(len(uid) * 8)
 	digest.Write([]byte{byte((userIdLen >> 8) & 0xFF)})
 	digest.Write([]byte{byte(userIdLen & 0xFF)})
-	if uid != nil && len(uid) > 0 {
-		digest.Write(uid)
-	}
-	digest.Write(appendBigIntTo32Bytes(GetSm2P256V1().A))
-	digest.Write(appendBigIntTo32Bytes(pub.Curve.Params().B))
-	digest.Write(appendBigIntTo32Bytes(pub.Curve.Params().Gx))
-	digest.Write(appendBigIntTo32Bytes(pub.Curve.Params().Gy))
-	digest.Write(appendBigIntTo32Bytes(pub.X))
-	digest.Write(appendBigIntTo32Bytes(pub.Y))
+	digest.Write(uid)
+	digest.Write(SM2P256V1().A.Bytes())
+	digest.Write(SM2P256V1().B.Bytes())
+	digest.Write(SM2P256V1().Gx.Bytes())
+	digest.Write(SM2P256V1().Gy.Bytes())
+	digest.Write(appendBigIntTo32Bytes(x))
+	digest.Write(appendBigIntTo32Bytes(y))
 	return digest.Sum(nil)
 }
 
 func appendBigIntTo32Bytes(bn *big.Int) []byte {
 	buf := bn.Bytes()
 	if n := len(buf); n < 32 {
-		buf = append(make([]byte, 32-n), buf...)
+		buf = append(zeroByteSlice()[:32-n], buf...)
 	}
 	return buf
+}
+func zeroByteSlice() []byte {
+	return []byte{
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+	}
 }
 
 func MarshalSign(r, s *big.Int) ([]byte, error) {
@@ -309,13 +325,15 @@ func Verify(pub *PublicKey, in, uid, signature []byte) bool {
 	return VerifyRS(pub, in, uid, r, s)
 }
 
-func VerifyRS(pub *PublicKey, in, uid []byte, r, s *big.Int) bool {
+func VerifyRS(pub *PublicKey, in []byte, uid []byte, r, s *big.Int) bool {
 	if r.Cmp(one) == -1 || r.Cmp(pub.Curve.Params().N) >= 0 {
 		return false
 	}
 	if s.Cmp(one) == -1 || s.Cmp(pub.Curve.Params().N) >= 0 {
 		return false
 	}
+
+	fmt.Println(hex.EncodeToString(uid))
 
 	hash, err := pub.SM3Digest(in, uid)
 	if err != nil {

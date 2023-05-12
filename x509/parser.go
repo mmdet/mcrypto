@@ -284,7 +284,7 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo) (any, error
 		if x == nil {
 			return nil, errors.New("x509: failed to unmarshal elliptic curve point")
 		}
-		if namedCurve == sm2.GetSm2P256V1() {
+		if namedCurve == sm2.SM2P256V1() {
 			return &sm2.PublicKey{
 				Curve: namedCurve,
 				X:     x,

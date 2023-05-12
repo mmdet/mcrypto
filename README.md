@@ -90,9 +90,7 @@ digest, _ := priv.PublicKey.SM3Digest(inBytes, useIdBytes)
 ```
 私钥签名:将上面计算的`digest`签名：
 ```go
-inBytes := []byte("123")
-
-sign, err := priv.SignDigest(rand.Reader, inBytes, nil)
+sign, err := priv.SignDigest(rand.Reader, digest)
 if err != nil {
     t.Error(err.Error())
     return
@@ -100,7 +98,7 @@ if err != nil {
 ```
 公钥验证：
 ```go
-result :=priv.PublicKey.VerifyDigest(inBytes,nil,sign)
+result :=priv.PublicKey.VerifyDigest(digest,sign)
 if !result {
     t.Error("verify failed")
     return

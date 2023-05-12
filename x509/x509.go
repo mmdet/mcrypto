@@ -684,7 +684,7 @@ func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
 	case oid.Equal(oidNamedCurveP521):
 		return elliptic.P521()
 	case oid.Equal(oidNamedCurveSM2P256):
-		return sm2.GetSm2P256V1()
+		return sm2.SM2P256V1()
 	}
 	return nil
 }
@@ -699,7 +699,7 @@ func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
 		return oidNamedCurveP384, true
 	case elliptic.P521():
 		return oidNamedCurveP521, true
-	case sm2.GetSm2P256V1():
+	case sm2.SM2P256V1():
 		return oidNamedCurveSM2P256, true
 	}
 
@@ -1049,7 +1049,7 @@ func checkSignature(algo SignatureAlgorithm, plain, signature []byte, publicKey 
 		if pubKeyAlgo != ECDSA {
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
 		}
-		if pub.Curve != sm2.GetSm2P256V1() {
+		if pub.Curve != sm2.SM2P256V1() {
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
 		}
 		if !sm2.Verify(pub, plain, nil, signature) {
@@ -1572,7 +1572,7 @@ func signingParamsForPublicKey(pub any, requestedSigAlgo SignatureAlgorithm) (ha
 	case *sm2.PublicKey:
 		pubType = ECDSA
 		switch pub.Curve {
-		case sm2.GetSm2P256V1():
+		case sm2.SM2P256V1():
 			hashFunc = SM3
 			sigAlgo.Algorithm = oidSignatureSM2WithSM3
 		default:
