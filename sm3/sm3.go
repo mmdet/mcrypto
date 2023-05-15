@@ -84,7 +84,7 @@ func (d *digest) Sum(in []byte) []byte {
 	return append(in, hash[:]...)
 }
 
-func (d *digest) checkSum() [Size]byte {
+func (d *digest) checkSum() []byte {
 	len := d.len
 	// Padding.  Add a 1 bit and 0 bits until 56 bytes mod 64.
 	var tmp [64]byte
@@ -104,7 +104,7 @@ func (d *digest) checkSum() [Size]byte {
 		panic("d.nx != 0")
 	}
 
-	var digest [Size]byte
+	digest := make([]byte, 32)
 
 	binary.BigEndian.PutUint32(digest[0:], d.h[0])
 	binary.BigEndian.PutUint32(digest[4:], d.h[1])
@@ -190,7 +190,7 @@ func block(dig *digest, p []byte) {
 	dig.h[0], dig.h[1], dig.h[2], dig.h[3], dig.h[4], dig.h[5], dig.h[6], dig.h[7] = A, B, C, D, E, F, G, H
 }
 
-func Sum(data []byte) [Size]byte {
+func Sum(data []byte) []byte {
 	var d digest
 	d.Reset()
 	d.Write(data)

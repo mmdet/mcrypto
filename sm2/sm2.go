@@ -1,11 +1,11 @@
 package sm2
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/elliptic"
-	"encoding/hex"
+	"encoding/binary"
 	"errors"
-	"fmt"
 	"github.com/mmdet/mcrypto/sm3"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
@@ -57,8 +57,8 @@ func initSm2P256V1() {
 
 //SM2 public key
 type PublicKey struct {
-	Curve P256V1Curve
-	X, Y  *big.Int
+	elliptic.Curve
+	X, Y *big.Int
 }
 
 //SM2 private key
@@ -96,20 +96,14 @@ func GenerateKey(random io.Reader) (*PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	priv := new(PrivateKey)
-	priv.PublicKey.Curve = SM2P256V1()
-	priv.D = new(big.Int).SetBytes(d)
-	priv.PublicKey.X, priv.PublicKey.Y = x, y
-
-	return priv, err
-	//return &PrivateKey{
-	//	PublicKey: PublicKey{
-	//		Curve: SM2P256V1(),
-	//		X:     x,
-	//		Y:     y,
-	//	},
-	//	D: new(big.Int).SetBytes(priv),
-	//}, err
+	return &PrivateKey{
+		PublicKey: PublicKey{
+			Curve: SM2P256V1(),
+			X:     x,
+			Y:     y,
+		},
+		D: new(big.Int).SetBytes(d),
+	}, err
 }
 
 //原文裸签，返回R||S
@@ -231,7 +225,7 @@ func UnmarshalSign(sig []byte) (r, s *big.Int, err error) {
 }
 
 //netx k
-func randFieldElement(c elliptic.Curve, rand io.Reader) (k *big.Int, err error) {
+func nextk(c elliptic.Curve, rand io.Reader) (k *big.Int, err error) {
 	params := c.Params()
 	b := make([]byte, params.BitSize/8+8)
 	_, err = io.ReadFull(rand, b)
@@ -284,7 +278,7 @@ func SignDigestRS(rand io.Reader, priv *PrivateKey, digest []byte) (r, s *big.In
 		var err error
 		for {
 			//生成一个随机数k,1 < k < N -1
-			k, err = randFieldElement(c, rand)
+			k, err = nextk(c, rand)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -332,9 +326,6 @@ func VerifyRS(pub *PublicKey, in []byte, uid []byte, r, s *big.Int) bool {
 	if s.Cmp(one) == -1 || s.Cmp(pub.Curve.Params().N) >= 0 {
 		return false
 	}
-
-	fmt.Println(hex.EncodeToString(uid))
-
 	hash, err := pub.SM3Digest(in, uid)
 	if err != nil {
 		return false
@@ -346,7 +337,6 @@ func VerifyRS(pub *PublicKey, in []byte, uid []byte, r, s *big.Int) bool {
 	if t.Sign() == 0 {
 		return false
 	}
-
 	x1, y1 := pub.Curve.ScalarBaseMult(s.Bytes())
 	x2, y2 := pub.Curve.ScalarMult(pub.X, pub.Y, t.Bytes())
 	x, y := pub.Curve.Add(x1, y1, x2, y2)
@@ -390,4 +380,112 @@ func VerifyDigestRS(pub *PublicKey, digest []byte, r, s *big.Int) bool {
 	x.Add(x, e)
 	x.Mod(x, pub.Curve.Params().N)
 	return x.Cmp(r) == 0
+}
+
+func Encryt(rand io.Reader, pub *PublicKey, msg []byte) ([]byte, error) {
+	length := len(msg)
+	for {
+		c := []byte{}
+		curve := pub.Curve
+		k, err := nextk(curve, rand)
+		if err != nil {
+			return nil, err
+		}
+		kBytes := k.Bytes()
+		//计算c1 = k·G(x,y)
+		c1x, c1y := curve.ScalarBaseMult(kBytes)
+		c = append(c, c1x.Bytes()...)
+		c = append(c, c1y.Bytes()...)
+		//计算c3
+		kpx, kpy := curve.ScalarMult(pub.X, pub.Y, kBytes)
+		c3 := []byte{}
+		c3 = append(c3, kpx.Bytes()...)
+		c3 = append(c3, msg...)
+		c3 = append(c3, kpy.Bytes()...)
+		c = append(c, sm3.Sum(c3)...)
+		//计算c2
+		t, ok := kdf(length, kpx, kpy)
+		if !ok {
+			continue
+		}
+		c = append(c, t...)
+		for i := 0; i != length; i++ {
+			c[96+i] ^= msg[i]
+		}
+		return c, nil
+	}
+}
+
+func kdf(klen int, x, y *big.Int) ([]byte, bool) {
+	var out []byte
+	//计数器（32位）
+	ct := 1
+	h := sm3.New()
+	xBytes := appendBigIntTo32Bytes(x)
+	yBytes := appendBigIntTo32Bytes(y)
+	n := (klen + 31) / 32 //需要计算的次数
+	for i := 0; i < n; i++ {
+		h.Write(xBytes)
+		h.Write(yBytes)
+		h.Write(intToBytes(ct))
+		hash := h.Sum(nil)
+		if klen%32 != 0 {
+			out = append(out, hash[:klen%32]...)
+		} else {
+			out = append(out, hash...)
+		}
+		ct++
+	}
+	for i := 0; i < len(out); i++ {
+		if out[i] != 0 {
+			return out, true
+		}
+	}
+	return nil, false
+}
+
+func intToBytes(x int) []byte {
+	var buf = make([]byte, 4)
+	binary.BigEndian.PutUint32(buf, uint32(x))
+	return buf
+}
+
+func Decryt(priv *PrivateKey, data []byte) ([]byte, error) {
+	//取出c1,是否满足椭圆曲线方程
+	c1x := new(big.Int).SetBytes(data[:32])
+	c1y := new(big.Int).SetBytes(data[32:64])
+	curve := priv.Curve
+	if c1x.Cmp(curve.Params().P) >= 0 || c1y.Cmp(curve.Params().P) >= 0 {
+		return nil, errors.New("C1 is not on the curve")
+	}
+	if !curve.IsOnCurve(c1x, c1y) {
+		return nil, errors.New("C1 is not on the curve")
+	}
+	//计算s=H*c1,若s是无穷远点，则报错
+	sx, sy := curve.ScalarMult(c1x, c1y, one.Bytes())
+	if sx.Sign() == 0 && sy.Sign() == 0 {
+		return nil, errors.New("[h]C1 at infinity")
+	}
+	x2, y2 := curve.ScalarMult(c1x, c1y, priv.D.Bytes())
+	//c2的长度
+	length := len(data) - 96
+	//kdf计算
+	c, ok := kdf(length, x2, y2)
+	if !ok {
+		return nil, errors.New("failed to decrypt:kdf error")
+	}
+	//c与密文的c2进行异或运算
+	for i := 0; i < length; i++ {
+		c[i] ^= data[i+96]
+	}
+	//比对摘要
+	tm := []byte{}
+	tm = append(tm, x2.Bytes()...)
+	tm = append(tm, c...)
+	tm = append(tm, y2.Bytes()...)
+	hash := sm3.Sum(tm)
+	if bytes.Compare(hash, data[64:96]) != 0 {
+		return c, errors.New("failed to decrypt:hash compared error")
+	}
+	return c, nil
 }

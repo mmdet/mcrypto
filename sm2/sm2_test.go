@@ -42,14 +42,12 @@ func TestSignVerify1(t *testing.T) {
 
 	inBytes := []byte("1234")
 
-	//sign, err := base64.StdEncoding.DecodeString("MEYCIQCvzIef6ErdPmuFpVhBDA2WOKePkiSq/Vk20x6nJ7OpYQIhAM9gYQ1MFu8E5ItLI7x/3slbK/5FV9AkG40gTFffpxNk")
-
 	sign, err := priv.Sign(rand.Reader, inBytes, nil)
 	if err != nil {
 		t.Error(err.Error())
 		return
 	}
-	//fmt.Println("raw sign:", base64.RawStdEncoding.EncodeToString(sign))
+	fmt.Println("raw sign:", base64.RawStdEncoding.EncodeToString(sign))
 	result := priv.PublicKey.Verify(inBytes, nil, sign)
 	if !result {
 		fmt.Println("priv.PublicKey verify failed")
@@ -61,6 +59,19 @@ func TestSignVerify1(t *testing.T) {
 		fmt.Println("sm2.verify success")
 	}
 
+	enc, err := Encryt(rand.Reader, &priv.PublicKey, inBytes)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	fmt.Println("enc", hex.EncodeToString(enc))
+
+	dec, err := Decryt(priv, enc)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	fmt.Println("dec", string(dec))
 }
 
 func TestSignVerify2(t *testing.T) {
@@ -90,6 +101,7 @@ func TestSignVerify2(t *testing.T) {
 }
 
 func TestSignVerify3(t *testing.T) {
+
 	priv, err := GenerateKey(rand.Reader)
 	if err != nil {
 		t.Error(err.Error())
@@ -142,4 +154,26 @@ func TestSignVerify3(t *testing.T) {
 
 	fmt.Printf("digest sign verify use digest result: %v \n", result)
 
+}
+
+func TestEncrypt(t *testing.T) {
+	priv, err := GenerateKey(rand.Reader)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	inBytes := []byte("1234")
+	enc, err := Encryt(rand.Reader, &priv.PublicKey, inBytes)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	fmt.Println("enc", hex.EncodeToString(enc))
+
+	dec, err := Decryt(priv, enc)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	fmt.Println("dec", string(dec))
 }
