@@ -36,24 +36,24 @@ h.Write([]byte("123"))
 fmt.Printf("%x \n", h.Sum(nil))
 ```
 ## SM2非对称加密算法
-### 1.密钥对生成
-`sm2.PublicKey`和`sm2.PrivateKey`表示SM2算法的公私钥对，并实现了标准库的`crypto.PublicKey`和`crypto.PrivateKey`，使用上与RSA、ECDSA等其他算法的密钥对使用方式一致。
+### 1.创建密钥对
 ```go
 priv, err := sm2.GenerateKey(rand.Reader)
 if err != nil {
 	t.Error(err.Error())
 	return
 }
-fmt.Printf("priv:%s\n", priv.D.Text(16))
-fmt.Printf("x:%s\n", priv.PublicKey.X.Text(16))
-fmt.Printf("y:%s\n", priv.PublicKey.Y.Text(16))
+fmt.Printf("privatekey:%s\n", priv.D.Text(16))
+fmt.Printf("publickey x:%s\n", priv.PublicKey.X.Text(16))
+fmt.Printf("publickey y:%s\n", priv.PublicKey.Y.Text(16))
 ```
 ### 2.加解密
+#### 2.1 公钥加密
+#### 2.2 私钥解密
 
 ### 3.数字签名
 mcrypto提供了对原文签名和对摘要签名这两种待签名数据输入形式的签名。
-#### 3.1 原文签名
-私钥签名：
+#### 3.1 私钥签名
 ```go
 priv, err := GenerateKey(rand.Reader)
 if err != nil {
@@ -61,46 +61,40 @@ if err != nil {
     return
 }
 inBytes := []byte("123")
+userId  := []byte("1234567812345678")
+//第一种签名方式
+sign, err := priv.Sign(rand.Reader, inBytes, userId)
+//第二种签名方式
+sign, err := sm2.Sign(rand.Reader, priv, inBytes, userId)
+```
+上面是对原文签名，也支持对摘要签名，需要调用者做预处理先生成摘要。
 
-sign, err := priv.Sign(rand.Reader, inBytes, nil)
-if err != nil {
-    t.Error(err.Error())
-    return
-}
-```
-公钥验证：
 ```go
-result :=priv.PublicKey.Verify(inBytes,nil,sign)
-if !result {
-    t.Error("verify failed")
-    return
-}
-```
-#### 3.2 摘要签名
-这种签名方式，需要调用者事先自己计算原文的摘要。
-
-由于SM2签名时的摘要计算需要公钥参与，sm2.PublicKey提供了该函数，调用方式如下：
-```go
-priv, err := GenerateKey(rand.Reader)
-if err != nil {
-    t.Error(err.Error())
-    return
-}
-digest, _ := priv.PublicKey.SM3Digest(inBytes, useIdBytes)
-```
-私钥签名:将上面计算的`digest`签名：
-```go
+priv, _ := GenerateKey(rand.Reader)
+//预处理，生成摘要
+inBytes := []byte("123")
+userId  := []byte("1234567812345678")
+digest, _ := priv.PublicKey.SM3Digest(inBytes, userId)
+//第一种签名方式
 sign, err := priv.SignDigest(rand.Reader, digest)
-if err != nil {
-    t.Error(err.Error())
-    return
-}
+//第二种签名方式
+sign, err = sm2.SignDigest(rand.Reader, priv, digest)
 ```
-公钥验证：
+#### 3.2 公钥验签：
 ```go
-result :=priv.PublicKey.VerifyDigest(digest,sign)
-if !result {
-    t.Error("verify failed")
-    return
-}
+priv, _ := GenerateKey(rand.Reader)
+inBytes := []byte("123")
+userId  := []byte("1234567812345678")
+sign := []byte("sign")
+//第一种方式
+result :=priv.PublicKey.Verify(inBytes,userId,sign)
+//第二种方式
+result := sm2.Verify(&priv.PublicKey, inBytes, userId, sign)
+```
+上面是使用原文验证签名，也支持使用摘要验证签名
+```go
+//第一种方式
+result := priv.PublicKey.VerifyDigest(inBytes, sign)
+//第二种方式
+result = sm2.VerifyDigest(&priv.PublicKey, digest, sign)
 ```
