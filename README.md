@@ -80,6 +80,7 @@ sign, err := priv.SignDigest(rand.Reader, digest)
 //第二种签名方式
 sign, err = sm2.SignDigest(rand.Reader, priv, digest)
 ```
+**原文数据一般默认是安全敏感数据，如果签名过程涉及到原文数据的网络传输，通常都是对原文做预处理，生成摘要数据，然后传输至签名服务器，对摘要数据签名。**
 #### 3.2 公钥验签：
 ```go
 priv, _ := GenerateKey(rand.Reader)
