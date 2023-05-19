@@ -56,10 +56,6 @@ mcrypto提供了对原文签名和对摘要签名这两种待签名数据输入�
 #### 3.1 私钥签名
 ```go
 priv, err := GenerateKey(rand.Reader)
-if err != nil {
-    t.Error(err.Error())
-    return
-}
 inBytes := []byte("123")
 userId  := []byte("1234567812345678")
 //第一种签名方式
