@@ -1,6 +1,7 @@
 package sm3
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -8,9 +9,15 @@ import (
 )
 
 func TestSm3ByBytes(t *testing.T) {
+	//h := New()
+	//h.Write([]byte("123"))
+	//fmt.Printf("%x \n", h.Sum(nil))
+
 	h := New()
-	h.Write([]byte("123"))
-	fmt.Printf("%x \n", h.Sum(nil))
+	h.Write([]byte("3af3ada0-cc4a-11ed-9979-acde48001122"))
+	b := h.Sum(nil)
+
+	fmt.Printf(hex.EncodeToString(b))
 }
 
 func TestSm3ByFile(t *testing.T) {

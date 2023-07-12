@@ -412,7 +412,7 @@ func Encryt(rand io.Reader, pub *PublicKey, msg []byte) ([]byte, error) {
 		for i := 0; i != length; i++ {
 			c[96+i] ^= msg[i]
 		}
-		return c, nil
+		return append([]byte{0x04}, c...), nil
 	}
 }
 
@@ -451,6 +451,8 @@ func intToBytes(x int) []byte {
 }
 
 func Decryt(priv *PrivateKey, data []byte) ([]byte, error) {
+	//去除开头的0x04
+	data = data[1:]
 	//取出c1,是否满足椭圆曲线方程
 	c1x := new(big.Int).SetBytes(data[:32])
 	c1y := new(big.Int).SetBytes(data[32:64])

@@ -72,6 +72,17 @@ func TestSignVerify1(t *testing.T) {
 		return
 	}
 	fmt.Println("dec", string(dec))
+
+	encgmsm, _ := hex.DecodeString("4bffdb953626efba7fd5876b13f228eb338652b552e8b556a343d6ed19305ebe7d10983b8523746b53fa8f816bc1b6ec26777e3c743b671302157b3ad82a529a50ceea710f7f3d7cdd57a7458c3c9b4108dd6a71c24ec29fc35154d10be3c7595cd460")
+
+	decgmsm, _ := Decryt(priv, encgmsm)
+	fmt.Println("decgmsm", string(decgmsm))
+
+	encgm, _ := hex.DecodeString("0a3d3e86b919d9a76fdb9c95f0f749755e5cec9183ecac2e9a06250dec2a0c134187b6d2234c912167958429625c71ded18ac31e93df207f1b0bb79a55222c9e09041f92507a649f227d15b59b1733c13cc6fb2c33e3ea7271b571839f369e2ad02836")
+
+	decgm, _ := Decryt(priv, encgm)
+	fmt.Println("decgm", string(decgm))
+
 }
 
 func TestSignVerify2(t *testing.T) {
