@@ -171,6 +171,45 @@ type SignerInfoConfig struct {
 	ExtraSignedAttributes []Attribute
 }
 
+type Callback func([]byte) ([]byte, error)
+
+func NewSignedDataCallBack(signerCertificate *Certificate, callback Callback, data []byte) ([]byte, error) {
+	content, err := asn1.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	ci := contentInfo{
+		ContentType: oidGMData,
+		Content:     asn1.RawValue{Class: 2, Tag: 0, Bytes: content, IsCompound: true},
+	}
+
+	digAlg := pkix.AlgorithmIdentifier{
+		Algorithm: oidDigestAlgorithmSM3,
+	}
+	certs := []*Certificate{signerCertificate}
+
+	si, err := getSignerInfoWithAttrCallback(signerCertificate, callback, data, SignerInfoConfig{})
+
+	sd := signedData{
+		Version:                    1,
+		DigestAlgorithmIdentifiers: []pkix.AlgorithmIdentifier{digAlg},
+		ContentInfo:                ci,
+		Certificates:               marshalCertificates(certs),
+		CRLs:                       []pkix.CertificateList{},
+		SignerInfos:                []signerInfo{si},
+	}
+	inner, err := asn1.Marshal(sd)
+	if err != nil {
+		return nil, err
+	}
+	outer := contentInfo{
+		ContentType: oidGMSignedData,
+		Content:     asn1.RawValue{Class: 2, Tag: 0, Bytes: inner, IsCompound: true},
+	}
+	return asn1.Marshal(outer)
+}
+
 // NewSignedData initializes a SignedData with content
 func NewSignedData(signerCertificate *Certificate, signerPrivateKey crypto.PrivateKey, data []byte) ([]byte, error) {
 	content, err := asn1.Marshal(data)
@@ -207,6 +246,41 @@ func NewSignedData(signerCertificate *Certificate, signerPrivateKey crypto.Priva
 		Content:     asn1.RawValue{Class: 2, Tag: 0, Bytes: inner, IsCompound: true},
 	}
 	return asn1.Marshal(outer)
+}
+
+func getSignerInfoWithAttrCallback(cert *Certificate, callback Callback, in []byte, config SignerInfoConfig) (signerInfo, error) {
+	h := sm3.New()
+	h.Write(in)
+	messageDigest := h.Sum(nil)
+	attrs := &attributes{}
+	attrs.Add(oidAttributeContentType, oidGMData)
+	attrs.Add(oidAttributeMessageDigest, messageDigest)
+	attrs.Add(oidAttributeSigningTime, time.Now())
+	for _, attr := range config.ExtraSignedAttributes {
+		attrs.Add(attr.Type, attr.Value)
+	}
+	finalAttrs, err := attrs.ForMarshaling()
+	if err != nil {
+		return signerInfo{}, err
+	}
+	signature, err := signAttributesCallback(finalAttrs, callback)
+	if err != nil {
+		return signerInfo{}, err
+	}
+
+	ias, err := cert2issuerAndSerial(cert)
+	if err != nil {
+		return signerInfo{}, err
+	}
+	signer := signerInfo{
+		Version:                   1,
+		IssuerAndSerialNumber:     ias,
+		AuthenticatedAttributes:   finalAttrs,
+		DigestAlgorithm:           pkix.AlgorithmIdentifier{Algorithm: oidDigestAlgorithmSM3},
+		DigestEncryptionAlgorithm: pkix.AlgorithmIdentifier{Algorithm: oidSignatureECDSASM2},
+		EncryptedDigest:           signature,
+	}
+	return signer, nil
 }
 
 func getSignerInfoWithAttr(cert *Certificate, pkey crypto.PrivateKey, in []byte, config SignerInfoConfig) (signerInfo, error) {
@@ -329,6 +403,18 @@ func signAttributes(attrs []attribute, pkey crypto.PrivateKey) ([]byte, error) {
 		return sm2.Sign(rand.Reader, priv, attrBytes, nil)
 	}
 	return nil, errors.New("unsupport algop")
+}
+
+func signAttributesCallback(attrs []attribute, callback Callback) ([]byte, error) {
+	attrBytes, err := marshalAttributes(attrs)
+	if err != nil {
+		return nil, err
+	}
+	s, err := callback(attrBytes)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 // concats and wraps the certificates in the RawValue structure

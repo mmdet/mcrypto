@@ -1120,6 +1120,14 @@ func parseCertificate(der []byte) (*Certificate, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	var paramsoid cryptobyte.String
+	paramsoid = pkAI.Parameters.FullBytes
+	var paramsAlgorithm asn1.ObjectIdentifier
+	paramsoid.ReadASN1ObjectIdentifier(&paramsAlgorithm)
+
+	fmt.Println(paramsAlgorithm)
+
 	cert.PublicKeyAlgorithm = getPublicKeyAlgorithmFromOID(pkAI.Algorithm)
 	var spk asn1.BitString
 	if !spki.ReadASN1BitString(&spk) {
