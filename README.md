@@ -49,7 +49,29 @@ fmt.Printf("publickey y:%s\n", priv.PublicKey.Y.Text(16))
 ```
 ### 2.加解密
 #### 2.1 公钥加密
+```go
+priv, err := GenerateKey(rand.Reader)
+if err != nil {
+		t.Error(err.Error())
+		return
+}
+inBytes := []byte("1234")
+enc, err := sm2.Encryt(rand.Reader, &priv.PublicKey, inBytes)
+if err != nil {
+	t.Error(err.Error())
+	return
+}
+fmt.Println("enc", hex.EncodeToString(enc))
+```
 #### 2.2 私钥解密
+```go
+dec, err := sm2.Decryt(priv, enc)
+if err != nil {
+	t.Error(err.Error())
+	return
+}
+fmt.Println("dec", string(dec))
+```
 
 ### 3.数字签名
 mcrypto提供了对原文签名和对摘要签名这两种待签名数据输入形式的签名。
