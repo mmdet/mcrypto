@@ -14,10 +14,10 @@ func TestSm3ByBytes(t *testing.T) {
 	//fmt.Printf("%x \n", h.Sum(nil))
 
 	h := New()
-	h.Write([]byte("3af3ada0-cc4a-11ed-9979-acde48001122"))
+	h.Write([]byte("3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a11111"))
 	b := h.Sum(nil)
 
-	fmt.Printf(hex.EncodeToString(b))
+	fmt.Println(hex.EncodeToString(b))
 }
 
 func TestSm3ByFile(t *testing.T) {
