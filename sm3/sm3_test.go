@@ -1,6 +1,7 @@
 package sm3
 
 import (
+	"crypto/hmac"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -44,4 +45,12 @@ func TestSm3ByFile(t *testing.T) {
 
 	fmt.Printf("%x", h.Sum(nil))
 
+}
+
+func TestHmacSm3(t *testing.T) {
+	key := []byte("a37032a33bdb2bc303cbd60f242372b9b7357d153f1ac8243e021d329d6d4943")
+	h := hmac.New(New, key)
+	h.Write([]byte("镜像上传2024-04-08 15:50:36.148376"))
+	b := h.Sum(nil)
+	fmt.Println(hex.EncodeToString(b))
 }

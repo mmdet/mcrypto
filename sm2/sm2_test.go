@@ -85,6 +85,30 @@ func TestSignVerify1(t *testing.T) {
 
 }
 
+func TestSignVerify11(t *testing.T) {
+
+	curve := SM2P256V1()
+	dBytes, _ := hex.DecodeString("938CAEBDA82E501CCAA3D2B649AF26DAF0548C27CF18A5DB0A7BD75D73574700")
+
+	priv := new(PrivateKey)
+	priv.PublicKey.Curve = curve
+	priv.D = new(big.Int).SetBytes(dBytes)
+
+	inBytes := []byte("1234")
+
+	sign, err := priv.Sign(rand.Reader, inBytes, nil)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	fmt.Println("raw sign:", base64.RawStdEncoding.EncodeToString(sign))
+	result := priv.PublicKey.Verify(inBytes, nil, sign)
+	if !result {
+		fmt.Println("priv.PublicKey verify failed")
+	}
+
+}
+
 func TestSignVerify2(t *testing.T) {
 	priv, err := GenerateKey(rand.Reader)
 	if err != nil {
@@ -173,7 +197,7 @@ func TestEncrypt(t *testing.T) {
 		t.Error(err.Error())
 		return
 	}
-	inBytes := []byte("1234")
+	inBytes := make([]byte, 252, 1024)
 	enc, err := Encryt(rand.Reader, &priv.PublicKey, inBytes)
 	if err != nil {
 		t.Error(err.Error())
